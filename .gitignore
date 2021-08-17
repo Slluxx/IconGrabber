@@ -1,0 +1,9 @@
+
+nxlink
+build.nx/
+
+*.zip
+*.nro
+*.elf
+*.bin
+*.nacp
