@@ -39,10 +39,10 @@ include $(DEVKITPRO)/libnx/switch_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	IconGrabber
 BUILD		:=	build.nx
-SOURCES		:=	example
+SOURCES		:=	src
 DATA		:=	data
 ICON		:=	resources/icon/borealis.jpg
-INCLUDES	:=	example
+INCLUDES	:=	src
 APP_TITLE	:=	IconGrabber
 APP_AUTHOR	:=	Slluxx
 APP_VERSION	:=	1.0.0
