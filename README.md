@@ -4,6 +4,7 @@ rewrite branch.
 
 ## roadmap
 
+- [ ] Find someone who can create a better icon (most important)
 - [ ] Splitting the current code in multiple classes and files
 - [ ] Refining the SteamGridDB api access
     - [ ] Also check if its possible to browse by author
