@@ -29,10 +29,6 @@ using namespace i18n::literals; // for _i18n
 
 int main(int argc, char *argv[])
 {
-    nsInitialize();
-    socketInitializeDefault();
-
-    Config config;
 
     brls::Logger::setLogLevel(brls::LogLevel::DEBUG);
     i18n::loadTranslations();
@@ -42,21 +38,55 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    nsInitialize();
+    socketInitializeDefault();
+
+    Config config;
+    nlohmann::json configJson = config.getConfig();
+
     // Create a sample view
     brls::TabFrame *rootFrame = new brls::TabFrame();
     rootFrame->setTitle("main/name"_i18n);
     rootFrame->setIcon(BOREALIS_ASSET("icon/borealis.jpg"));
 
-    brls::List *testList = new brls::List();
 
-    brls::ListItem *dialogItem = new brls::ListItem("main/pozznx/open"_i18n);
-    dialogItem->getClickEvent()->subscribe([](brls::View *view)
-        {
-            brls::Application::notify("clicked");
-        });
+    brls::List* settingsTab = new brls::List();
 
-    testList->addView(dialogItem);
-    rootFrame->addTab("tab1", testList);
+    brls::InputListItem* settingApiToken = new brls::InputListItem("Set the API token", configJson["api_token"].get<std::string>(), "Enter your steamgriddb.com api key", "Get it on steamgriddb.com", 32);
+    settingApiToken->getClickEvent()->subscribe([&settingApiToken, &configJson](brls::View* view) {
+        configJson["api_token"] = settingApiToken->getValue();
+    });
+
+    brls::Header* saveHeader = new brls::Header("Save settings");
+    brls::ListItem* savebutton = new brls::ListItem("Save settings");
+    savebutton->getClickEvent()->subscribe([&savebutton, &config, &configJson](brls::View* view) {
+        config.setConfig(configJson);
+        config.saveConfigToFile();
+    });
+
+    settingsTab->addView(settingApiToken);
+    settingsTab->addView(saveHeader);
+    settingsTab->addView(savebutton);
+
+
+
+    brls::List *getImagesTab = new brls::List();
+
+    brls::ListItem* online = new brls::ListItem("SteamGridDB.com", "You need an API key to use this feature");
+    brls::ListItem* custom = new brls::ListItem("Custom source(s)", "Set your own sources in the config file");
+    brls::ListItem* local = new brls::ListItem("Local folder", "Your own icons.");
+
+    getImagesTab->addView(online);
+    getImagesTab->addView(custom);
+    getImagesTab->addView(local);
+
+
+    brls::List *browseImagesTab = new brls::List();
+    brls::ListItem* test = new brls::ListItem("test");
+
+
+    rootFrame->addTab("Settings", settingsTab);
+    rootFrame->addTab("Get Images", getImagesTab);
 
     brls::Application::pushView(rootFrame);
 
