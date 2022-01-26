@@ -16,11 +16,14 @@ Config::Config()
     initConfig();
 }
 
-void Config::initConfig(){
-    if (utils::file_exists(c_configPath)){
+void Config::initConfig()
+{
+    if (utils::file_exists(c_configPath))
+    {
         loadConfigFromFile();
     }
-    else{
+    else
+    {
         setConfigDefault();
         saveConfigToFile();
     }
@@ -38,7 +41,14 @@ void Config::saveConfigToFile()
 void Config::setConfigDefault()
 {
     c_config["api_token"] = "abc";
-    c_config["style_id"] = 0;
-    c_config["resolution_id"] = 5;
+    c_config["customSources"] = nlohmann::json::array();
+}
+nlohmann::json Config::getConfig()
+{
+    return c_config;
+}
+void Config::setConfig(nlohmann::json config)
+{
+    c_config = config;
 }
 #endif

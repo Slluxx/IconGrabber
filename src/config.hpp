@@ -17,6 +17,8 @@ public:
     void loadConfigFromFile();
     void saveConfigToFile();
     void setConfigDefault();
+    nlohmann::json getConfig();
+    void setConfig(nlohmann::json config);
 
 };
 #endif
