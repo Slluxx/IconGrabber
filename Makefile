@@ -41,11 +41,11 @@ TARGET		:=	IconGrabber
 BUILD		:=	build.nx
 SOURCES		:=	src
 DATA		:=	data
-ICON		:=	resources/icon/borealis.jpg
+ICON		:=	resources/icon/icon.jpg
 INCLUDES	:=	src
 APP_TITLE	:=	IconGrabber
 APP_AUTHOR	:=	Slluxx
-APP_VERSION	:=	1.0.0
+APP_VERSION	:=	2.0.0
 
 ROMFS				:=	resources
 BOREALIS_PATH		:=	.
