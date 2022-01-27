@@ -3,6 +3,7 @@
 
 #include <string>
 #include <switch.h>
+#include <nlohmann/json.hpp>
 
 namespace utils {
 
@@ -14,6 +15,7 @@ namespace utils {
     std::string formatApplicationId(u64 ApplicationId);
     size_t write_to_string(void *ptr, size_t size, size_t nmemb, std::string stream);
     size_t write_to_file(void *ptr, size_t size, size_t nmemb, FILE *stream);
+    nlohmann::json getInstalledGames();
 
 }
 

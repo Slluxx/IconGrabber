@@ -42,4 +42,37 @@ namespace utils {
         written = fwrite(ptr, size, nmemb, stream);
         return written;
     }
+
+    nlohmann::json getInstalledGames(){
+        NsApplicationRecord *records = new NsApplicationRecord[64000]();
+        uint64_t tid;
+        NsApplicationControlData controlData;
+        NacpLanguageEntry* langEntry = NULL;
+
+        Result rc;
+        int recordCount     = 0;
+        size_t controlSize  = 0;
+
+        nlohmann::json games = nlohmann::json::array();
+
+        rc = nsListApplicationRecord(records, 64000, 0, &recordCount);
+        for (s32 i = 0; i < recordCount; i++)
+        {
+            tid = records[i].application_id;
+            rc = nsGetApplicationControlData(NsApplicationControlSource_Storage, tid, &controlData, sizeof(controlData), &controlSize);
+            if(R_FAILED(rc)) break;
+            rc = nacpGetLanguageEntry(&controlData.nacp, &langEntry);
+            if(R_FAILED(rc)) break;
+            
+            if(!langEntry->name)
+                continue;
+
+            std::string appName = langEntry->name;
+            std::string titleId = formatApplicationId(tid);
+            games.push_back({ {"tid", titleId}, {"name", appName} });
+        }
+        delete[] records;
+        return games;
+    }
+
 }
