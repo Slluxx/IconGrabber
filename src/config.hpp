@@ -6,19 +6,19 @@
 
 class Config
 {
-private:
-    std::string c_configPath = "sdmc:/config/icongrabber/config.json";
+    private:
+        std::string c_configPath = "sdmc:/config/icongrabber/config.json";
 
-public:
-    nlohmann::json c_config;
+    public:
+        nlohmann::json c_config;
 
-    Config();
-    void initConfig();
-    void loadConfigFromFile();
-    void saveConfigToFile();
-    void setConfigDefault();
-    nlohmann::json getConfig();
-    void setConfig(nlohmann::json config);
+        Config();
+        void initConfig();
+        void loadConfigFromFile();
+        void saveConfigToFile();
+        void setConfigDefault();
+        nlohmann::json getConfig();
+        void setConfig(nlohmann::json config);
 
 };
 #endif
