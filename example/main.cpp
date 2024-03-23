@@ -97,9 +97,9 @@ void overwriteIcon(std::string tid, std::string imagePath)
     {
         brls::Logger::info("Image is loaded");
         unsigned char* data = NULL;
-        data                = (unsigned char*)malloc(256 * 256 * 3 * sizeof(unsigned char));
+        data                = (unsigned char*)malloc(256 * 256 * channels * sizeof(unsigned char));
 
-        if (stbir_resize_uint8(img, width, height, 0, data, 256, 256, 256 * 3, 3))
+        if (stbir_resize_uint8(img, width, height, 0, data, 256, 256, 256 * channels, channels))
         {
             brls::Logger::info("resize good");
         }
@@ -124,6 +124,8 @@ void overwriteIcon(std::string tid, std::string imagePath)
         {
             brls::Application::notify("Icon could not be saved");
         };
+        stbi_image_free(img);
+        free(data);
     }
 }
 
