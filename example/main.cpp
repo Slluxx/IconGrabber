@@ -124,6 +124,8 @@ void overwriteIcon(std::string tid, std::string imagePath)
         {
             brls::Application::notify("Icon could not be saved");
         };
+        stbi_image_free(img);
+        free(data);
     }
 }
 
