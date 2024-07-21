@@ -1,5 +1,5 @@
-
 nxlink
+.vscode/
 build.nx/
 
 *.zip
@@ -7,3 +7,4 @@ build.nx/
 *.elf
 *.bin
 *.nacp
+*.lst

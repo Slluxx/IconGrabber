@@ -1,4 +1,5 @@
 #include <curl/curl.h>
+#include <dirent.h>
 #include <nanovg/stb_image.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -23,6 +24,7 @@
 
 namespace i18n = brls::i18n; // for loadTranslations() and getStr()
 using namespace i18n::literals; // for _i18n
+namespace fs = std::filesystem;
 
 std::string configPath = "sdmc:/config/icongrabber/config.json";
 
@@ -44,6 +46,117 @@ std::vector<std::string> allowedImageResolutions = {
     "512x512",
     "1024x1024"
 };
+
+bool deleteRecursive(const std::string& path)
+{
+    DIR* dir             = nullptr;
+    struct dirent* entry = nullptr;
+    dir                  = opendir(path.c_str());
+
+    if (dir)
+    {
+        while ((entry = readdir(dir)))
+        {
+            std::string filename = entry->d_name;
+            if ((filename.compare(".") == 0) || (filename.compare("..") == 0))
+                continue;
+
+            std::string file_path = path;
+            file_path.append(path.compare("/") == 0 ? "" : "/");
+            file_path.append(filename);
+
+            if (entry->d_type & DT_DIR)
+            {
+                deleteRecursive(file_path);
+            }
+            else
+            {
+                if (remove(file_path.c_str()) != 0)
+                {
+                    return false;
+                }
+            }
+        }
+
+        closedir(dir);
+    }
+    else
+    {
+        return false;
+    }
+
+    return (rmdir(path.c_str()) == 0);
+}
+
+bool cp(const char* filein, const char* fileout)
+{
+    FILE *exein, *exeout;
+    exein = fopen(filein, "rb");
+    if (exein == NULL)
+    {
+        /* handle error */
+        perror("file open for reading");
+        return false;
+    }
+    exeout = fopen(fileout, "wb");
+    if (exeout == NULL)
+    {
+        /* handle error */
+        perror("file open for writing");
+        return false;
+    }
+    size_t n, m;
+    unsigned char buff[131072];
+    do
+    {
+        n = fread(buff, 1, sizeof buff, exein);
+        if (n)
+            m = fwrite(buff, 1, n, exeout);
+        else
+            m = 0;
+    } while ((n > 0) && (n == m));
+    if (m)
+    {
+        perror("copy");
+        return false;
+    }
+    if (fclose(exeout))
+    {
+        perror("close output file");
+        return false;
+    }
+    if (fclose(exein))
+    {
+        perror("close input file");
+        return false;
+    }
+    return true;
+}
+
+std::vector<std::string> getIconsIds(std::string dir) {
+    std::vector<std::string> gamesIds;
+    for (auto const& entry : std::filesystem::directory_iterator(dir))
+    {
+        std::string tid = "None";
+        if (fs::exists(entry.path().string() + "/icon.jpg"))
+        {
+            tid = entry.path().filename().string();
+            gamesIds.push_back(tid);
+        }
+    }
+
+    return gamesIds;
+}
+
+bool copyIcons(std::string inDir, std::string outDir) {
+    std::vector<std::string> gamesIds = getIconsIds(inDir);
+    for (const std::string& gameId : gamesIds) {
+        if(!fs::exists(outDir + gameId)) fs::create_directory(outDir + gameId);
+        bool res = cp((inDir + gameId + "/icon.jpg").c_str(), (outDir + gameId + "/icon.jpg").c_str());
+        if (!res) return false;
+    }
+    return true;
+}
 
 nlohmann::json loadConfig()
 {
@@ -83,6 +196,13 @@ std::string formatApplicationId(u64 ApplicationId)
     std::stringstream strm;
     strm << std::uppercase << std::setfill('0') << std::setw(16) << std::hex << ApplicationId;
     return strm.str();
+}
+
+u64 parseApplicationId(std::string& hexString)
+{
+    u64 result;
+    std::istringstream(hexString) >> std::hex >> result;
+    return result;
 }
 
 void overwriteIcon(std::string tid, std::string imagePath)
@@ -395,6 +515,7 @@ void frame_showOnlineTitleIcons(std::string gameId)
                 continue;
             }
             brls::Logger::info(it["id"].dump());
+            printf(it["language"].dump().c_str());
             brls::ListItem* litem = new brls::ListItem(it["id"].dump());
             litem->getFocusEvent()->subscribe([=](brls::View* view)
                 {
@@ -484,8 +605,7 @@ void frame_showLocalTitles(std::string imagePath)
                 else
                 {
                     overwriteIcon(tid, imagePath);
-                }
-            });
+                } });
         if (imagePath == "")
         {
             litem->registerAction("Delete current icon", brls::Key::X, [=]
@@ -536,6 +656,78 @@ void frame_showLocalIcons()
     {
         brls::ListItem* litem = new brls::ListItem("No files found.");
         list->addView(litem);
+    }
+
+    rootFrame->setContentView(list);
+    brls::Application::pushView(rootFrame);
+}
+
+void frame_showBackupAndRestore(bool restore)
+{
+    brls::ThumbnailFrame* rootFrame = new brls::ThumbnailFrame();
+    rootFrame->setTitle(restore ? "Games with backuped custom icon" : "Games with installed custom icon");
+    rootFrame->setIcon(BOREALIS_ASSET("icon/borealis.jpg"));
+    rootFrame->getSidebar()->setThumbnail(BOREALIS_ASSET("icon/borealis.jpg"));
+
+    if (!fs::exists("sdmc:/gameIcons"))
+        fs::create_directory("sdmc:/gameIcons");
+    if (!fs::exists("sdmc:/gameIcons/backup"))
+        fs::create_directory("sdmc:/gameIcons/backup");
+
+    std::string dir  = restore ? "sdmc:/gameIcons/backup/" : "sdmc:/atmosphere/contents/";
+
+    brls::List* list = new brls::List();
+    std::vector<std::string> gamesIds = getIconsIds(dir);
+
+    if (gamesIds.size() == 0)
+    {
+        brls::ListItem* litem = new brls::ListItem(restore ? "No backuped custom icons found." : "No installed custom icons found.");
+        list->addView(litem);
+    }
+    else
+    {
+        NsApplicationControlData controlData;
+        NacpLanguageEntry* langEntry = NULL;
+
+        Result rc;
+        size_t controlSize = 0;
+
+        rootFrame->getSidebar()->getButton()->setLabel("Delete");
+
+        for (std::string gameId : gamesIds) {
+            rc = nsGetApplicationControlData(NsApplicationControlSource_Storage, parseApplicationId(gameId), &controlData, sizeof(controlData), &controlSize);
+            if (R_FAILED(rc))
+                break;
+
+            rc = nacpGetLanguageEntry(&controlData.nacp, &langEntry);
+            if (R_FAILED(rc))
+                break;
+
+            if (!langEntry->name)
+                continue;
+
+            std::string appName = langEntry->name;
+
+            brls::ListItem* litem = new brls::ListItem(appName);
+
+            litem->getFocusEvent()->subscribe([dir, gameId, rootFrame, restore, litem](brls::View* view)
+            {
+                rootFrame->getSidebar()->getButton()->getClickEvent()->unsubscribeAll();
+                rootFrame->getSidebar()->setThumbnail(dir + gameId + "/icon.jpg");
+                rootFrame->getSidebar()->getButton()->getClickEvent()->subscribe([dir, gameId, rootFrame, restore, litem](brls::View* view) {
+                    bool res = fs::remove(dir + gameId + "/icon.jpg");
+                    if (res) {
+                        litem->collapse();
+                        rootFrame->getSidebar()->setThumbnail(BOREALIS_ASSET("icon/borealis.jpg"));
+                        brls::Application::notify("Done");
+                    }else {
+                        brls::Application::notify("Error");
+                    }
+                }); 
+            });
+
+            list->addView(litem);
+        }
     }
 
     rootFrame->setContentView(list);
@@ -606,6 +798,63 @@ int main(int argc, char* argv[])
             std::filesystem::create_directory("sdmc:/gameIcons/thumbnails/");
 
         brls::Application::notify("Done"); });
+    
+    brls::List* installedIconsTab             = new brls::List();
+    brls::ListItem* displayInstalledIcons = new brls::ListItem("Browse installed icons");
+    brls::ListItem* deleteInstalledIcons = new brls::ListItem("Delete installed icons");
+
+    displayInstalledIcons->getClickEvent()->subscribe([=](brls::View* view)
+        { frame_showBackupAndRestore(false); });
+    deleteInstalledIcons->getClickEvent()->subscribe([=](brls::View* view)
+        {
+            std::vector<std::string> gamesIds = getIconsIds("sdmc:/atmosphere/contents/");
+            bool res = true;
+
+            for (const std::string& gameId : gamesIds) {
+                if(!deleteRecursive("sdmc:/atmosphere/contents/" + gameId)) {
+                    res = false;
+                    brls::Application::notify("Error");
+                    break;
+                }
+            }
+            if(res) brls::Application::notify("Done");
+        });
+
+    brls::List* backupTab             = new brls::List();
+    brls::ListItem* displayBackupedIcons = new brls::ListItem("Browse backuped icons");
+    brls::ListItem* backupIcons = new brls::ListItem("Backup icons", "", "For keep backup don't delete gameIcons/backup");
+    brls::ListItem* restoreIcons = new brls::ListItem("Restore icons", "", "WARNING : Replace already aplied icons");
+    brls::ListItem* deleteBackup = new brls::ListItem("Delete backup", "", "This will not delete already applied icons.");
+
+    displayBackupedIcons->getClickEvent()->subscribe([=](brls::View* view)
+        { frame_showBackupAndRestore(true); });
+    backupIcons->getClickEvent()->subscribe([=](brls::View* view)
+        { 
+            bool res = copyIcons("sdmc:/atmosphere/contents/", "sdmc:/gameIcons/backup/"); brls::Application::notify("Done"); 
+            if (res) {
+                brls::Application::notify("Done"); 
+            } else {
+                brls::Application::notify("Error");
+            }
+        });
+    restoreIcons->getClickEvent()->subscribe([=](brls::View* view)
+        { 
+            bool res = copyIcons("sdmc:/gameIcons/backup/", "sdmc:/atmosphere/contents/");
+            if (res) {
+                brls::Application::notify("Done"); 
+            } else {
+                brls::Application::notify("Error");
+            }
+        });
+    deleteBackup->getClickEvent()->subscribe([=](brls::View* view)
+        {
+            if (std::filesystem::exists("sdmc:/gameIcons/backup"))
+                if (deleteRecursive("sdmc:/gameIcons/backup")) {
+                    brls::Application::notify("Done"); 
+                } else {
+                    brls::Application::notify("Error");
+                }
+        });
 
     settingsTab->addView(settingApiToken);
     settingsTab->addView(settingStyles);
@@ -617,10 +866,20 @@ int main(int argc, char* argv[])
     localIcons->addView(browseIcons);
     localIcons->addView(deleteIconCache);
 
+    backupTab->addView(displayBackupedIcons);
+    backupTab->addView(backupIcons);
+    backupTab->addView(restoreIcons);
+    backupTab->addView(deleteBackup);
+
+    installedIconsTab->addView(displayInstalledIcons);
+    installedIconsTab->addView(deleteInstalledIcons);
+
     rootFrame->addTab("Settings", settingsTab);
     rootFrame->addSeparator();
     rootFrame->addTab("Search Icons", searchTab);
     rootFrame->addTab("Downloaded Icons", localIcons);
+    rootFrame->addTab("Installed Icons", installedIconsTab);
+    rootFrame->addTab("Backup Icons", backupTab);
 
     brls::Application::pushView(rootFrame);
 
